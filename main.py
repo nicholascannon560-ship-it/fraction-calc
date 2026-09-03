@@ -14,7 +14,7 @@ with open("index.html", "r") as f:
     INDEX_HTML = f.read()
 
 def verify(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_user = secrets.compare_digest(credentials.username, AUTH_USER)
+    correct_user = secrets.compare_digest(credentials.username.strip().lower(), AUTH_USER.strip().lower())
     correct_pass = secrets.compare_digest(credentials.password, AUTH_PASS)
     if not (correct_user and correct_pass):
         raise HTTPException(
