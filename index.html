@@ -473,10 +473,10 @@
     if (!t) { showErr('Nothing to convert'); return; }
     let f = simplify(t.val);
     if (f.den < 0) { f.num = -f.num; f.den = -f.den; }
-    if (f.den <= 64) { applyTarget(t, f, ''); return; }
+    if (f.den <= 16) { applyTarget(t, f, ''); return; }
     const before = f.num / f.den;
-    const r = simplify({ num: Math.round(before * 64), den: 64 });
-    applyTarget(t, r, '≈ nearest 1/64 (was ' + +before.toFixed(6) + ')');
+    const r = simplify({ num: Math.round(before * 16), den: 16 });
+    applyTarget(t, r, '≈ nearest 1/16 (was ' + +before.toFixed(6) + ')');
   }
 
   document.addEventListener('keydown', (e) => {
