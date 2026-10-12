@@ -153,6 +153,24 @@
     font-size: 18px;
   }
   .fc-btn-sec:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .fc-btn-preset {
+    height: 44px;
+    font-size: 16px;
+    background: rgba(52,211,153,0.10);
+    border: 1px solid rgba(52,211,153,0.25);
+    color: #6ee7b7;
+  }
+  .fc-btn-preset:hover { background: rgba(52,211,153,0.2); }
+  .fc-btn-tool {
+    grid-column: span 2;
+    height: 44px;
+    font-size: 15px;
+    background: rgba(96,165,250,0.12);
+    border: 1px solid rgba(96,165,250,0.3);
+    color: #93c5fd;
+  }
+  .fc-btn-tool:hover { background: rgba(96,165,250,0.22); }
+  .fc-error.info { color: #94a3b8; }
   .fc-hint {
     text-align: center;
     font-size: 11px;
@@ -178,6 +196,19 @@
   </div>
 
   <div class="fc-grid">
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(1,16)">1/16</button>
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(1,8)">1/8</button>
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(1,4)">1/4</button>
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(3,8)">3/8</button>
+
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(1,2)">1/2</button>
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(5,8)">5/8</button>
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(3,4)">3/4</button>
+    <button class="fc-btn fc-btn-preset" onclick="addFrac(7,8)">7/8</button>
+
+    <button class="fc-btn fc-btn-tool" onclick="toNearest16()">≈ 1/16</button>
+    <button class="fc-btn fc-btn-tool" onclick="decToFrac()">Dec → Frac</button>
+
     <button class="fc-btn fc-btn-sec" onclick="ac()">AC</button>
     <button class="fc-btn fc-btn-sec" onclick="back()">⌫</button>
     <button class="fc-btn fc-btn-sec" onclick="ins('/')">/</button>
@@ -205,7 +236,7 @@
   </div>
 
   <div class="fc-hint">
-    <kbd>11</kbd> <kbd>space</kbd> <kbd>1/4</kbd> <kbd>+</kbd> <kbd>2</kbd> <kbd>space</kbd> <kbd>3/8</kbd> · <kbd>Enter</kbd> to calc
+    <kbd>25</kbd> <kbd>5/8</kbd> <kbd>1/16</kbd> → 25 11/16 · presets add to the current number
   </div>
 </div>
 
@@ -269,6 +300,12 @@
       const d = parseInt(frac[2]);
       if (d === 0) throw new Error('Zero denominator');
       return { num: n, den: d };
+    }
+    const dec = tok.match(/^(-?)(\d*)\.(\d*)$/);
+    if (dec && (dec[2] || dec[3])) {
+      const digits = (dec[2] || '') + (dec[3] || '');
+      const num = parseInt(digits || '0', 10) * (dec[1] ? -1 : 1);
+      return simplify({ num: num, den: Math.pow(10, dec[3].length) });
     }
     const whole = tok.match(/^(-?\d+)$/);
     if (whole) {
@@ -335,7 +372,7 @@
       if (result) {
         const dec = (result.num / result.den).toFixed(6).replace(/\.?0+$/,'');
         resWrap.innerHTML = buildFracHTML(result) + '<span class="fc-result-dec">≈ ' + dec + '</span>';
-        errEl.textContent = '';
+        errEl.textContent = ''; errEl.classList.remove('info');
       } else {
         resWrap.innerHTML = '';
         errEl.textContent = '';
@@ -347,6 +384,91 @@
   }
 
   function calc() { autoCalc(); }
+
+  // ---- presets / rounding helpers ----
+  function fracToStr(f) {
+    f = simplify(f);
+    if (f.den < 0) { f.num = -f.num; f.den = -f.den; }
+    const sign = f.num < 0 ? '-' : '';
+    const an = Math.abs(f.num);
+    const whole = Math.floor(an / f.den);
+    const rem = an % f.den;
+    if (rem === 0) return sign + whole;
+    if (whole === 0) return sign + rem + '/' + f.den;
+    return sign + whole + ' ' + rem + '/' + f.den;
+  }
+
+  // current number being typed (after the last operator)
+  function splitLast() {
+    const m = input.match(/^(.*\s[+\−×÷]\s)(.*)$/);
+    return m ? { head: m[1], tail: m[2] } : { head: '', tail: input };
+  }
+
+  function note(msg) {
+    const el = document.getElementById('err');
+    el.textContent = msg;
+    el.classList.add('info');
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('err');
+    el.textContent = msg;
+    el.classList.remove('info');
+  }
+
+  // Preset buttons: always ADD the fraction to the number being typed.
+  function addFrac(n, d) {
+    const { head, tail } = splitLast();
+    let cur = { num: 0, den: 1 };
+    if (tail.trim()) {
+      try { cur = parseToken(tail); }
+      catch (e) { showErr('Finish the current entry first'); return; }
+    }
+    const sum = { num: cur.num * d + n * cur.den, den: cur.den * d };
+    input = head + fracToStr(sum);
+    render();
+    autoCalc();
+  }
+
+  // Target for rounding/conversion: the answer if an expression is complete,
+  // otherwise the number currently being typed.
+  function getTarget() {
+    let res = null;
+    try { res = doCalc(); } catch (e) {}
+    if (res) return { head: '', val: res, wasResult: true };
+    const { head, tail } = splitLast();
+    if (!tail.trim()) return null;
+    try { return { head, val: parseToken(tail), wasResult: false }; }
+    catch (e) { return null; }
+  }
+
+  function applyTarget(t, newVal, msg) {
+    input = t.head + fracToStr(newVal);
+    activeOp = null;
+    render();
+    autoCalc();
+    if (msg) note(msg);
+  }
+
+  function toNearest16() {
+    const t = getTarget();
+    if (!t) { showErr('Nothing to round'); return; }
+    const before = t.val.num / t.val.den;
+    const r = simplify({ num: Math.round(before * 16), den: 16 });
+    const exact = Math.abs(r.num / r.den - before) < 1e-9;
+    applyTarget(t, r, exact ? '' : 'Rounded from ' + +before.toFixed(6) + ' to nearest 1/16');
+  }
+
+  function decToFrac() {
+    const t = getTarget();
+    if (!t) { showErr('Nothing to convert'); return; }
+    let f = simplify(t.val);
+    if (f.den < 0) { f.num = -f.num; f.den = -f.den; }
+    if (f.den <= 64) { applyTarget(t, f, ''); return; }
+    const before = f.num / f.den;
+    const r = simplify({ num: Math.round(before * 64), den: 64 });
+    applyTarget(t, r, '≈ nearest 1/64 (was ' + +before.toFixed(6) + ')');
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.key >= '0' && e.key <= '9') { e.preventDefault(); ins(e.key); }
