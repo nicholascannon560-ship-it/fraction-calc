@@ -396,24 +396,47 @@
     return html;
   }
 
-  function doCalc() {
-    const parts = input.split(/\s*([+\−×÷])\s*/).filter(s => s !== '');
-    if (parts.length !== 3) return null;
-    const left = parseToken(parts[0]);
-    const op = parts[1];
-    const right = parseToken(parts[2]);
-    if (!left || !right) return null;
+  function applyOp(a, op, b) {
     let num, den;
-    switch(op) {
-      case '+': num = left.num * right.den + right.num * left.den; den = left.den * right.den; break;
-      case '−': num = left.num * right.den - right.num * left.den; den = left.den * right.den; break;
-      case '×': num = left.num * right.num; den = left.den * right.den; break;
-      case '÷': num = left.num * right.den; den = left.den * right.num; break;
+    switch (op) {
+      case '+': num = a.num * b.den + b.num * a.den; den = a.den * b.den; break;
+      case '−': num = a.num * b.den - b.num * a.den; den = a.den * b.den; break;
+      case '×': num = a.num * b.num; den = a.den * b.den; break;
+      case '÷': num = a.num * b.den; den = a.den * b.num; break;
       default: return null;
     }
     if (den === 0) throw new Error('Division by zero');
-    let res = simplify({num, den});
-    if (res.den < 0) { res.num = -res.num; res.den = -res.den; }
+    const r = simplify({ num, den });
+    if (r.den < 0) { r.num = -r.num; r.den = -r.den; }
+    return r;
+  }
+
+  // Evaluates any length chain: 1/2 + 3/4 − 1/8 + 2 ...
+  // × and ÷ go before + and −. A trailing operator is ignored so the
+  // running total stays on screen while you type the next number.
+  function doCalc() {
+    const parts = input.split(/\s*([+\−×÷])\s*/).filter(s => s.trim() !== '');
+    if ('+−×÷'.includes(parts[parts.length - 1])) parts.pop();
+    if (parts.length < 3 || parts.length % 2 === 0) return null;
+    const vals = [], ops = [];
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 0) {
+        const v = parseToken(parts[i]);
+        if (!v) return null;
+        vals.push(v);
+      } else {
+        ops.push(parts[i]);
+      }
+    }
+    // pass 1: × ÷
+    const v2 = [vals[0]], o2 = [];
+    for (let i = 0; i < ops.length; i++) {
+      if (ops[i] === '×' || ops[i] === '÷') v2[v2.length - 1] = applyOp(v2[v2.length - 1], ops[i], vals[i + 1]);
+      else { o2.push(ops[i]); v2.push(vals[i + 1]); }
+    }
+    // pass 2: + − left to right
+    let res = v2[0];
+    for (let i = 0; i < o2.length; i++) res = applyOp(res, o2[i], v2[i + 1]);
     return res;
   }
 
