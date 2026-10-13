@@ -487,13 +487,23 @@
   function note(msg) {
     const el = document.getElementById('err');
     el.textContent = msg;
-    el.classList.add('info');
+    el.className = 'fc-error info';
   }
 
   function showErr(msg) {
     const el = document.getElementById('err');
     el.textContent = msg;
-    el.classList.remove('info');
+    el.className = 'fc-error';
+  }
+
+  // Tell the user which way the 1/16 rounding went, and by how much.
+  function noteRound(before, r) {
+    const el = document.getElementById('err');
+    const diff = r.num / r.den - before;
+    if (Math.abs(diff) < 1e-9) { el.textContent = 'Exact — no rounding'; el.className = 'fc-error info'; return; }
+    const up = diff > 0;
+    el.className = 'fc-error ' + (up ? 'up' : 'down');
+    el.textContent = (up ? '▲ Rounded UP' : '▼ Rounded DOWN') + ' by ' + +Math.abs(diff).toFixed(4) + ' (was ' + +before.toFixed(4) + ')';
   }
 
   // Preset buttons: always ADD the fraction to the number being typed.
