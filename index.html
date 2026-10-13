@@ -576,6 +576,34 @@
     else if (e.key === 'Escape') { e.preventDefault(); ac(); }
   });
 
+  // Presets: tap = add, press and hold = subtract.
+  document.querySelectorAll('.fc-btn-preset').forEach(btn => {
+    const m = (btn.getAttribute('onclick') || '').match(/addFrac\((\d+),\s*(\d+)\)/);
+    if (!m) return;
+    const n = +m[1], d = +m[2];
+    btn.removeAttribute('onclick');
+    let timer = null, held = false;
+    const stop = () => { clearTimeout(timer); timer = null; };
+    btn.addEventListener('pointerdown', () => {
+      held = false;
+      stop();
+      timer = setTimeout(() => {
+        timer = null;
+        held = true;
+        btn.classList.add('held');
+        if (navigator.vibrate) navigator.vibrate(25);
+        addFrac(-n, d);
+        setTimeout(() => btn.classList.remove('held'), 300);
+      }, 450);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+    btn.addEventListener('click', e => {
+      if (held) { held = false; e.preventDefault(); return; }
+      addFrac(n, d);
+    });
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+  });
+
   render();
 </script>
 </body>
