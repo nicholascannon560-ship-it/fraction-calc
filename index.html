@@ -545,8 +545,8 @@
     if (!t) { showErr('Nothing to round'); return; }
     const before = t.val.num / t.val.den;
     const r = simplify({ num: Math.round(before * 16), den: 16 });
-    const exact = Math.abs(r.num / r.den - before) < 1e-9;
-    applyTarget(t, r, exact ? '' : 'Rounded from ' + +before.toFixed(6) + ' to nearest 1/16');
+    applyTarget(t, r, '');
+    noteRound(before, r);
   }
 
   function decToFrac() {
@@ -557,7 +557,8 @@
     if (f.den <= 16) { applyTarget(t, f, ''); return; }
     const before = f.num / f.den;
     const r = simplify({ num: Math.round(before * 16), den: 16 });
-    applyTarget(t, r, '≈ nearest 1/16 (was ' + +before.toFixed(6) + ')');
+    applyTarget(t, r, '');
+    noteRound(before, r);
   }
 
   document.addEventListener('keydown', (e) => {
