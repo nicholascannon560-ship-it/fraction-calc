@@ -185,6 +185,15 @@
     font-family: inherit;
     color: #94a3b8;
   }
+  .fc-tip { margin-top:14px; text-align:center; }
+  .fc-tip-link { background:none; border:0; color:#94a3b8; font-size:14px; font-family:inherit; text-decoration:underline; cursor:pointer; padding:6px; }
+  .fc-tip-box { margin-top:10px; display:none; }
+  .fc-tip-box.open { display:block; }
+  .fc-tip-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .fc-tip-row button, .fc-tip-go { background:rgba(96,165,250,0.15); color:#e8e8f0; border:1px solid rgba(96,165,250,0.35); border-radius:12px; padding:10px 14px; font-size:15px; font-weight:600; font-family:inherit; cursor:pointer; }
+  .fc-tip-custom { display:flex; gap:8px; justify-content:center; margin-top:8px; }
+  .fc-tip-custom input { width:110px; background:rgba(0,0,0,0.35); color:#fff; border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:10px; font-size:16px; font-family:inherit; text-align:center; user-select:text; }
+  .fc-tip-msg { margin-top:8px; font-size:13px; color:#94a3b8; min-height:16px; }
 </style>
 </head>
 <body>
@@ -247,8 +256,43 @@
   <div class="fc-hint">
     <kbd>25</kbd> <kbd>5/8</kbd> <kbd>1/16</kbd> → 25 11/16 · presets add to the current number
   </div>
+  <div class="fc-tip">
+    <button class="fc-tip-link" id="tipToggle" type="button">Leave a tip</button>
+    <div class="fc-tip-box" id="tipBox">
+      <div class="fc-tip-row">
+        <button type="button" data-tip="2">$2</button>
+        <button type="button" data-tip="5">$5</button>
+        <button type="button" data-tip="10">$10</button>
+      </div>
+      <div class="fc-tip-custom">
+        <input id="tipAmt" type="number" inputmode="decimal" min="1" step="1" placeholder="Other $">
+        <button type="button" class="fc-tip-go" id="tipGo">Tip</button>
+      </div>
+      <div class="fc-tip-msg" id="tipMsg">Any amount, $1 or more. Paid securely through Square.</div>
+    </div>
+  </div>
 </div>
-
+<script>
+(function(){
+  const box=document.getElementById('tipBox'), msg=document.getElementById('tipMsg');
+  document.getElementById('tipToggle').onclick=()=>box.classList.toggle('open');
+  async function tip(dollars){
+    const cents=Math.round(Number(dollars)*100);
+    if(!(cents>=100)){msg.textContent='Enter $1 or more.';return;}
+    if(cents>50000){msg.textContent='Max $500.';return;}
+    msg.textContent='Opening checkout…';
+    try{
+      const r=await fetch('/tip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cents})});
+      const j=await r.json();
+      if(!r.ok||!j.url) throw new Error(j.error||'Checkout unavailable');
+      location.href=j.url;
+    }catch(e){msg.textContent=e.message||'Something went wrong, try again.';}
+  }
+  box.querySelectorAll('[data-tip]').forEach(b=>b.onclick=()=>tip(b.dataset.tip));
+  document.getElementById('tipGo').onclick=()=>tip(document.getElementById('tipAmt').value);
+  if(new URLSearchParams(location.search).get('tipped')){box.classList.add('open');msg.textContent='Thank you for the tip!';history.replaceState(null,'','/');}
+})();
+</script>
 <script>
   let input = '';
   let activeOp = null;
@@ -480,6 +524,7 @@
   }
 
   document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.tagName === 'INPUT') return;
     if (e.key >= '0' && e.key <= '9') { e.preventDefault(); ins(e.key); }
     else if (e.key === '.') { e.preventDefault(); ins('.'); }
     else if (e.key === ' ') { e.preventDefault(); ins(' '); }
